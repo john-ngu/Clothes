@@ -32,7 +32,7 @@ export const DIMS = {
 
 // What "too low" / "too high" means for each dimension, in plain words.
 const DIRECTION_TEXT = {
-  chestFlat:      { low: 'snug through the chest for your 99 cm chest', high: 'very roomy in the body — risks a balloon / swallowed look' },
+  chestFlat:      { low: 'slimmer through the body than your target — less relaxed/boxy', high: 'very roomy in the body — risks a balloon / swallowed look' },
   length:         { low: 'on the cropped side', high: 'long — will hang past your upper hip and shorten your legs' },
   shoulder:       { low: 'narrow for your 51 cm shoulders — may pull across the back', high: 'very dropped shoulder — can look sloppy on a 5\'7"–5\'8" frame' },
   reach:          { low: 'sleeves may end short of the wrist', high: 'sleeves long — will bunch at the cuff' },
@@ -41,7 +41,7 @@ const DIRECTION_TEXT = {
   hipFlat:        { low: 'tight through the seat', high: 'roomy through the seat' },
   thighFlat:      { low: 'tight on your 58–59 cm thighs', high: 'very wide thigh — can look baggy' },
   inseam:         { low: 'short — will look cropped / high-water', high: 'long — will stack at the ankle unless hemmed' },
-  legOpeningFlat: { low: 'tapered / narrow at the ankle', high: 'wide at the hem — flared, balloon-ish look' },
+  legOpeningFlat: { low: 'tapered / narrow at the ankle', high: 'wide at the hem — extra fabric at the bottom, flared look' },
 };
 
 export const VERDICTS = [
@@ -137,18 +137,27 @@ export function scoreGarmentSize(category, rawMeasurements, profile, opts = {}) 
     dims.push({ key, label: DIMS[key]?.label || key, value, ideal: spec.ideal, ok: spec.ok, score: Math.round(r.score), status: r.status, side: r.side, message });
   }
   const flags = [];
-  // Hard comfort limits: a muscular chest, arms or thighs that physically don't fit.
+  // Hard comfort limits from the BODY (not style targets): a muscular chest,
+  // arms or thighs that physically won't fit comfortably.
+  const bd = profile.body || {};
+  const hi = v => Array.isArray(v) ? Math.max(...v.map(Number)) : num(v);
+  const limits = {
+    chestFlat: hi(bd.chest) != null ? (hi(bd.chest) + 6) / 2 : null,
+    bicepFlat: hi(bd.biceps) != null ? (hi(bd.biceps) + 2) / 2 : null,
+    thighFlat: hi(bd.thigh) != null ? (hi(bd.thigh) + 2) / 2 : null,
+    hipFlat: hi(bd.hips) != null ? (hi(bd.hips) + 2) / 2 : null,
+    shoulder: CATEGORIES[category]?.group === 'top' && hi(bd.shoulder) != null ? hi(bd.shoulder) - 4 : null,
+  };
   for (const d of dims) {
-    if (d.status === 'off' && d.side === 'low' && ['chestFlat', 'bicepFlat', 'thighFlat', 'shoulder', 'hipFlat'].includes(d.key)) {
-      flags.push(`Too tight: ${d.label.toLowerCase()}`);
-    }
+    const lim = limits[d.key];
+    if (lim != null && d.value != null && d.value < lim) flags.push(`Too tight: ${d.label.toLowerCase()} (${d.value} cm vs ~${round1(lim)} cm minimum for your body)`);
   }
   // Room to grow toward the target weight.
   const target = num(profile.body?.targetWeightLb);
   const current = num(profile.body?.weightLb);
   if (target && current && target > current + 3) {
     for (const d of dims) {
-      if (['chestFlat', 'thighFlat', 'bicepFlat', 'waistFlat'].includes(d.key) && d.value != null && d.value - d.ideal[0] < 1) {
+      if (['chestFlat', 'thighFlat', 'bicepFlat', 'waistFlat'].includes(d.key) && d.value != null && d.value - d.ideal[0] < 1.5) {
         flags.push(`Little room to grow in the ${d.label.toLowerCase().split(' (')[0]} if you bulk toward ${target} lb`);
       }
     }

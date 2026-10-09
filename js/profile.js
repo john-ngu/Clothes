@@ -2,14 +2,14 @@
 // plus localStorage persistence. Everything here is editable in the app.
 
 export const DEFAULT_PROFILE = {
-  version: 1,
+  version: 2,
   updated: '2026-10-09',
   body: {
     gender: 'Male / menswear',
     age: 29,
     heightCm: [170, 173],
     weightLb: 168,
-    weightNote: 'Recorded July 2026; usual range 168–175 lb',
+    weightNote: 'Recorded July 2026; usual range 168–175 lb. Actively bulking toward 180 lb — leave room in chest, arms and thighs.',
     targetWeightLb: 180,
     build: 'Athletic, muscular: broad shoulders, developed arms, muscular thighs and calves',
     chest: 99,
@@ -32,12 +32,13 @@ export const DEFAULT_PROFILE = {
   // These started as estimates from your body measurements and your perfect-fit
   // BTS hoodie (M). Tune them in Profile → Fit targets as you log real items.
   ideals: {
+    // Centered on the BTS Arirang zip hoodie (M): oversized & boxy is the goal.
     hoodie: {
-      length:    { ideal: [65, 68],     ok: [63, 70.5], weight: 3 },
-      chestFlat: { ideal: [61, 72],     ok: [58, 74.5], weight: 3 },
-      shoulder:  { ideal: [52, 58.5],   ok: [49, 61],   weight: 2 },
-      reach:     { ideal: [84, 90],     ok: [81, 93],   weight: 1.5 },
-      bicepFlat: { ideal: [21, 27],     ok: [19.5, 30], weight: 1 },
+      length:    { ideal: [66, 69],     ok: [64.5, 71], weight: 3 },
+      chestFlat: { ideal: [67, 74],     ok: [63, 77],   weight: 3 },
+      shoulder:  { ideal: [54, 59],     ok: [51, 61.5], weight: 2 },
+      reach:     { ideal: [85.5, 90.5], ok: [83, 93],   weight: 1.5 },
+      bicepFlat: { ideal: [22, 28],     ok: [20.5, 30], weight: 1 },
     },
     tshirt: {
       length:    { ideal: [65, 67.5],   ok: [63, 70],   weight: 3 },
@@ -67,22 +68,22 @@ export const DEFAULT_PROFILE = {
       waistFlat:      { ideal: [41, 44],   ok: [39.5, 46], weight: 2.5 },
       hipFlat:        { ideal: [50, 56],   ok: [48, 60],   weight: 1.5 },
       thighFlat:      { ideal: [33, 40],   ok: [31.5, 43], weight: 3 },
-      inseam:         { ideal: [70, 74.5], ok: [68, 78],   weight: 2.5 },
-      legOpeningFlat: { ideal: [21, 27],   ok: [19, 31],   weight: 1.5 },
+      inseam:         { ideal: [70, 73.5], ok: [68, 76],   weight: 2.5 },
+      legOpeningFlat: { ideal: [21, 25.5], ok: [19, 28],   weight: 2 },
     },
     dress_pants: {
       waistFlat:      { ideal: [41, 43.5], ok: [39.5, 45.5], weight: 2.5 },
       hipFlat:        { ideal: [50, 55],   ok: [48, 58],   weight: 1.5 },
       thighFlat:      { ideal: [32, 37],   ok: [31, 40],   weight: 3 },
-      inseam:         { ideal: [70, 73.5], ok: [68, 76],   weight: 2.5 },
-      legOpeningFlat: { ideal: [19.5, 24], ok: [18.5, 26.5], weight: 1.5 },
+      inseam:         { ideal: [70, 73.5], ok: [68, 75.5], weight: 2.5 },
+      legOpeningFlat: { ideal: [19.5, 23.5], ok: [18.5, 25.5], weight: 1.5 },
     },
     sweatpants: {
       waistFlat:      { ideal: [41, 44],   ok: [39.5, 46], weight: 1.5 },
       hipFlat:        { ideal: [50, 56],   ok: [48, 59],   weight: 1 },
       thighFlat:      { ideal: [31.5, 35.5], ok: [30.5, 38], weight: 3 },
-      inseam:         { ideal: [70, 74.5], ok: [68, 77],   weight: 2.5 },
-      legOpeningFlat: { ideal: [17, 21],   ok: [15, 23.5], weight: 2 },
+      inseam:         { ideal: [70, 73.5], ok: [68, 75.5], weight: 2.5 },
+      legOpeningFlat: { ideal: [17, 20.5], ok: [15, 22.5], weight: 2 },
     },
     shorts: {
       waistFlat:      { ideal: [41, 44],   ok: [39.5, 46], weight: 2 },
@@ -102,15 +103,15 @@ export const DEFAULT_PROFILE = {
   references: [
     {
       id: 'ref-bts-hoodie',
-      name: 'BTS tour zip-up hoodie (Weverse, light/washed grey)',
+      name: 'BTS Arirang tour zip-up hoodie (Weverse, light/washed grey)',
       category: 'hoodie', size: 'M', outcome: 'perfect',
       measurements: { length: 67.4, chestFlat: 71.2, shoulder: 56.6, sleeve: 59.7 },
-      notes: 'Fit perfectly — length, hem position, relaxed look, proportions, comfort. 100% cotton loopback, oversized/boxy cut, full zip, split kangaroo pockets, ribbed waist & cuffs. Item code BTSTA26A0T511GY4 (made Jan 2026). Measurements from the official Weverse listing.',
+      notes: 'THE target hoodie: whatever this is, he wants (oversized boxy cut is fine). Fit perfectly — length, hem position, relaxed look, proportions, comfort. 100% cotton loopback, oversized/boxy cut, full zip, split kangaroo pockets, ribbed waist & cuffs. Item code BTSTA26A0T511GY4 (made Jan 2026). Measurements from the official Weverse listing.',
     },
     { id: 'ref-figs-leon', name: 'FIGS Leon scrub top', category: 'scrub_top', size: 'M', outcome: 'perfect', measurements: {}, notes: 'Perfect fit.' },
     { id: 'ref-figs-pants', name: 'FIGS scrub pants', category: 'scrub_pants', size: 'M Short', outcome: 'perfect', measurements: {}, notes: 'Perfect fit.' },
-    { id: 'ref-figs-cairo', name: 'FIGS Cairo scrub pants', category: 'scrub_pants', size: 'M', outcome: 'loose', measurements: {}, notes: 'Perfect length; slightly loose around waist and hips.' },
-    { id: 'ref-uq-fleece-blouson', name: 'Uniqlo Fleece-Lined Blouson', category: 'jacket', size: 'M', outcome: 'too_short', measurements: {}, notes: 'Felt too short.' },
+    { id: 'ref-figs-cairo', name: 'FIGS Cairo scrub pants', category: 'scrub_pants', size: 'M', outcome: 'good', measurements: {}, notes: 'Perfect length; slightly loose around waist and hips, but fine overall.' },
+    { id: 'ref-uq-fleece-blouson', name: 'Uniqlo Fleece-Lined Blouson', category: 'jacket', size: 'M', outcome: 'too_short', measurements: {}, notes: 'Too short in his opinion — jackets need more length than this.' },
     { id: 'ref-uq-windproof', name: 'Uniqlo Windproof Stand Blouson', category: 'jacket', size: 'S', outcome: 'unknown', measurements: {}, notes: 'Considered in Small; not confirmed as best size.' },
   ],
 
@@ -122,6 +123,7 @@ export const DEFAULT_PROFILE = {
   ],
   shoeNotes: 'General range US M 8.5–9 depending on brand/model. Wants snug and secure but never squeezing the toes. Foot length/width not measured yet.',
 
+  // No hard budgets beyond hoodies; the AI still rewards good value.
   budgets: { hoodie: 40, tshirt: null, longsleeve: null, jacket: null, casual_pants: null, dress_pants: null, sweatpants: null, shorts: null, shoes: null },
 
   // Free-text style profile the AI reads. Edit freely.
@@ -129,17 +131,17 @@ export const DEFAULT_PROFILE = {
 
 FIT PRIORITIES (in order): 1) Proportions for 5'7"–5'8" — never make the torso look long or legs short. 2) Comfort for daily activities. 3) Natural, soft fabric drape. 4) Relaxed but intentional. 5) Right length: slightly cropped tops, proportional jackets, properly hemmed pants. 6) Minimalist: neutral colors, understated, minimal branding. 7) Versatility (lectures, everyday, outings). 8) Value — quality at a reasonable price, not paying for branding.
 
-HOODIES (very important): relaxed and slightly oversized, slightly cropped / naturally shorter; roomy through shoulders, chest and upper arms; not tight at stomach/waist; not balloon-shaped, not excessively long, not too boxy or stiff. Hem should stop around the waist/upper hip without folding or tucking. Fabric: soft, drapey, flowy, breathable, lightweight-to-midweight, flexible; some substance so it doesn't feel cheap, but NOT heavyweight/bulky/stiff. Drape is extremely important — fabric should fall over the shoulders, arms and torso rather than stick out. No fixed fabric-composition rule; feel/drape/fit matter more than the label. Hood: generous, fully covers head, proportional to shoulders, holds its shape, not heavy, clean when worn down; dislikes small flimsy hoods. Colors: 1) dark navy 2) black 3) grey/heather grey 4) muted washed neutrals 5) understated earth tones. No logo preferred; small subtle logo OK; no big graphics/lettering. Budget ~$35–40 or less (has considered a ~$150 one but prefers better-value alternatives). Considered: A&F Essential/Heritage, American Eagle, Urban Outfitters Standard Cloth, H&M oversized zip-ups, Uniqlo, plain BTS tour-style zip hoodies.
+HOODIES (very important): relaxed and slightly oversized, slightly cropped / naturally shorter; roomy through shoulders, chest and upper arms; not tight at stomach/waist; not balloon-shaped, not excessively long, not stiff. THE BTS ARIRANG ZIP HOODIE (M) IS THE TARGET: match its proportions (oversized, boxy is fine) — length ~67 cm, pit-to-pit ~71 cm, dropped shoulder ~57 cm. Hem should stop around the waist/upper hip without folding or tucking. Fabric: soft, drapey, flowy, breathable, lightweight-to-midweight, flexible; some substance so it doesn't feel cheap, but NOT heavyweight/bulky/stiff. Drape is extremely important — fabric should fall over the shoulders, arms and torso rather than stick out. No fixed fabric-composition rule; feel/drape/fit matter more than the label. Hood: generous, fully covers head, proportional to shoulders, holds its shape, not heavy, clean when worn down; dislikes small flimsy hoods. Colors: 1) dark navy 2) black 3) grey/heather grey 4) muted washed neutrals 5) understated earth tones. No logo preferred; small subtle logo OK; no big graphics/lettering. Budget ~$35–40 or less (has considered a ~$150 one but prefers better-value alternatives). Considered: A&F Essential/Heritage, American Eagle, Urban Outfitters Standard Cloth, H&M oversized zip-ups, Uniqlo, plain BTS tour-style zip hoodies.
 
 T-SHIRTS & TOPS: relaxed, slightly oversized, slightly cropped (65–67 cm), room for chest/shoulders, sleeves that fit muscular arms, not clinging to stomach, natural drape rather than stiff and square. Soft, breathable, light/medium weight. Black, white, off-white, grey, navy, neutrals. Likes plain minimal tees, white cutoff-sleeve shirts, thermal long sleeves, Henleys, slightly cropped long sleeves. Considered: Buck Mason Natural Vintage Thermal Henley, American Eagle Fit Cozy Thermal, Uniqlo ribbed Henley, Uniqlo AIRism. Henleys/thermals should show the athletic physique without being excessively tight.
 
-PANTS — casual: relaxed, straight or wide leg, thigh room, clean drape hip-to-ankle, little/no taper, Japanese/Korean silhouettes, pair with chunky sneakers, loafers, clogs. Not every pair excessively wide. DRESS / smart casual: relaxed straight or moderately wide, clean tailored look, thigh room, good drape, NO balloon/barrel shape; considered Uniqlo Easy Wide. ATHLETIC SWEATPANTS: athletic silhouette, straight or clean open hem, NOT excessively baggy or as wide as his Uniqlo trousers, room for muscular thighs, soft fabric, clean ankle; likes black sweatpants with a light grey or black hoodie; considered Nike open-hem brushed-fleece sweatpants. All pants: room for thighs/calves, comfortable waist, not tight at hips, inseam ~28–29" (71–74 cm), minimal stacking.
+PANTS — casual: relaxed, straight or wide leg, thigh room, clean drape hip-to-ankle, little/no taper, Japanese/Korean silhouettes, pair with chunky sneakers, loafers, clogs. Not every pair excessively wide. DRESS / smart casual: relaxed straight or moderately wide, clean tailored look, thigh room, good drape, NO balloon/barrel shape; considered Uniqlo Easy Wide. ATHLETIC SWEATPANTS: athletic silhouette, straight or clean open hem, NOT excessively baggy or as wide as his Uniqlo trousers, room for muscular thighs, soft fabric, clean ankle; likes black sweatpants with a light grey or black hoodie; considered Nike open-hem brushed-fleece sweatpants. All pants: room for thighs/calves, comfortable waist, not tight at hips, inseam ~28–29" (71–74 cm). Rise: no strong preference — sits between natural waist and hips (mid-rise). NO excess material at the bottom: no stacking/pooling at the ankle, no flared or oversized hem.
 
-JACKETS: slightly cropped but not awkwardly short, relaxed, room for shoulders/chest, clean simple silhouette, minimal branding, layers well, not bulky, works with straight/wide pants. Likes modern blousons, simple zip jackets, casual hooded jackets. Uniqlo Fleece-Lined Blouson M felt too short. Navy, black, grey, earth tones.
+JACKETS: slightly cropped but not awkwardly short, relaxed, room for shoulders/chest, clean simple silhouette, minimal branding, layers well, not bulky, works with straight/wide pants. Likes modern blousons, simple zip jackets, casual hooded jackets. Uniqlo Fleece-Lined Blouson M was too short in his opinion — jackets need a bit more length than that. Navy, black, grey, earth tones.
 
 SHOES: priorities 1) comfort for walking/long standing 2) noticeable but natural extra height (no obvious elevator/exaggerated platforms) 3) aesthetics 4) support & cushioning 5) versatility 6) value. Likes chunky-but-stylish and running-inspired sneakers, retro/modern athletic, white/neutral colorways: Hoka Bondi 9 (all white), Nike Vomero 5, AF1, New Balance 9060 (Castlerock), Air Max 95, Chuck 70, classic Converse (white laces). Also minimalist loafers, comfortable clogs, moc-toe and casual leather shoes with an understated height boost. Avoid toe-squeezing, poor cushioning.
 
-SCRUBS / NURSING SCHOOL (Emory): navy scrub top & pants, Emory emblem on required top, NO jogger-style scrub pants, all-white or all-black leather/vinyl closed-heel shoes, ankle-covering socks in approved colors, thin approved neutral undershirts. Likes navy FIGS, comfortable professional fit, room to move, pants not too long, not baggy; has looked at the FIGS Cobaki jacket. Clinical shoes: comfort and cushioning for long shifts.
+SCRUBS / NURSING SCHOOL (Emory): FIGS Leon top M, FIGS pants M Short and FIGS Cairo M all fit fine. Navy scrub top & pants, Emory emblem on required top, NO jogger-style scrub pants, all-white or all-black leather/vinyl closed-heel shoes, ankle-covering socks in approved colors, thin approved neutral undershirts. Likes navy FIGS, comfortable professional fit, room to move, pants not too long, not baggy; has looked at the FIGS Cobaki jacket. Clinical shoes: comfort and cushioning for long shifts.
 
 COLOR PALETTE: black, white, off-white, cream, grey, charcoal, dark navy, muted blue, beige, brown, olive and earth tones. Neutral, understated combos; no bright/loud outfits.
 
@@ -189,7 +191,27 @@ function mergeDefaults(saved, defaults) {
   return out;
 }
 
-export function loadProfile() { return mergeDefaults(read(KEYS.profile), DEFAULT_PROFILE); }
+const V1_HOODIE = { length: [65, 68], chestFlat: [61, 72], shoulder: [52, 58.5], reach: [84, 90] };
+
+function migrate(p) {
+  if (!p || (p.version ?? 1) >= DEFAULT_PROFILE.version) return p;
+  // v2: hoodie targets re-centered on the BTS hoodie; tighter pant hems.
+  const h = p.ideals?.hoodie;
+  if (h && Object.entries(V1_HOODIE).every(([k, v]) => h[k] && h[k].ideal[0] === v[0] && h[k].ideal[1] === v[1])) {
+    p.ideals.hoodie = clone(DEFAULT_PROFILE.ideals.hoodie);
+  }
+  for (const cat of ['casual_pants', 'dress_pants', 'sweatpants']) {
+    if (p.ideals?.[cat]) {
+      p.ideals[cat].inseam = clone(DEFAULT_PROFILE.ideals[cat].inseam);
+      p.ideals[cat].legOpeningFlat = clone(DEFAULT_PROFILE.ideals[cat].legOpeningFlat);
+    }
+  }
+  if (typeof p.style === 'string' && p.style.includes('not too boxy or stiff')) p.style = DEFAULT_PROFILE.style;
+  p.version = DEFAULT_PROFILE.version;
+  return p;
+}
+
+export function loadProfile() { return mergeDefaults(migrate(read(KEYS.profile)), DEFAULT_PROFILE); }
 export function saveProfile(p) { p.updated = new Date().toISOString().slice(0, 10); return write(KEYS.profile, p); }
 export function resetProfile() { return write(KEYS.profile, clone(DEFAULT_PROFILE)); }
 

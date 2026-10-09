@@ -44,9 +44,9 @@ test('a tight tee is flagged and capped at "Workable" or below', () => {
 
 test('evaluateItem picks the best size', () => {
   const item = { category: 'hoodie', sizes: [
-    { size: 'S', measurements: { length: 64, chestFlat: 57, shoulder: 50, sleeve: 58 } },
-    { size: 'M', measurements: { length: 67, chestFlat: 62, shoulder: 53, sleeve: 60 } },
-    { size: 'L', measurements: { length: 71, chestFlat: 67, shoulder: 56, sleeve: 62 } },
+    { size: 'S', measurements: { length: 64, chestFlat: 65, shoulder: 53, sleeve: 58 } },
+    { size: 'M', measurements: { length: 67.5, chestFlat: 70, shoulder: 56, sleeve: 60 } },
+    { size: 'L', measurements: { length: 71.5, chestFlat: 75, shoulder: 59, sleeve: 62 } },
   ] };
   const ev = evaluateItem(item, profile);
   assert.equal(ev.bestSize, 'M');
@@ -83,4 +83,15 @@ test('reference comparison shows per-dimension differences', () => {
 test('shoes with no measurements fall back to style + AI estimate', () => {
   const ev = evaluateItem({ category: 'shoes', sizes: [], ai_fit_estimate: { score: 80 }, style: { aesthetic: { score: 90 } } }, profile);
   assert.ok(ev.overall > 0);
+});
+
+test('a regular-fit (non-boxy) hoodie scores below the BTS-style target', () => {
+  const regular = scoreGarmentSize('hoodie', { length: 67, chestFlat: 58, shoulder: 49, sleeve: 62 }, profile);
+  const boxy = scoreGarmentSize('hoodie', { length: 67, chestFlat: 72, shoulder: 57, sleeve: 59 }, profile);
+  assert.ok(boxy.score > regular.score + 15);
+});
+
+test('wide hems are marked down for pants (no excess fabric at the bottom)', () => {
+  const r = scoreGarmentSize('casual_pants', { waistFlat: 42, thighFlat: 36, inseam: 72, legOpeningFlat: 30 }, profile);
+  assert.equal(r.dims.find(d => d.key === 'legOpeningFlat').status, 'off');
 });
