@@ -95,3 +95,16 @@ test('wide hems are marked down for pants (no excess fabric at the bottom)', () 
   const r = scoreGarmentSize('casual_pants', { waistFlat: 42, thighFlat: 36, inseam: 72, legOpeningFlat: 30 }, profile);
   assert.equal(r.dims.find(d => d.key === 'legOpeningFlat').status, 'off');
 });
+
+test('parseReply reads a pasted Claude chat reply (fenced json among prose)', async () => {
+  const { parseReply } = await import('../js/prompts.js');
+  const reply = 'Here is my analysis.\n\n```json\n{"item":{"brand":"Uniqlo","name":"Sweat Hoodie","category":"hoodie","url":"https://example.com"},"sizes":[{"size":"M","measurements":{"length":67,"chestFlat":70}}],"summary":"ok"}\n```\nLet me know!';
+  const r = parseReply(reply);
+  assert.equal(r.kind, 'item');
+  assert.equal(r.item.brand, 'Uniqlo');
+  assert.equal(r.item.sizes[0].measurements.chestFlat, 70);
+  const alts = parseReply('```json\n{"alternatives":[{"item":{"brand":"H&M","name":"Zip","category":"hoodie"},"sizes":[],"why":"closer"}]}\n```');
+  assert.equal(alts.kind, 'alternatives');
+  assert.equal(alts.alternatives[0].why, 'closer');
+  assert.equal(parseReply('no json here'), null);
+});

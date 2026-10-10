@@ -8,7 +8,8 @@ A personal phone web app that judges whether a piece of clothing fits **my** bod
 2. **Fit math (no AI).** `js/fit.js` compares each size's measurements with the ideal and acceptable ranges for that category, and picks the best size. The ranges are anchored on my body measurements and my perfect-fit BTS zip hoodie (M: length 67.4, pit-to-pit 71.2, shoulder 56.6, sleeve 59.7 cm). It also compares the size side by side with clothes I own.
 3. **Verdict.** 60% fit + 40% style (fabric/drape, branding, color, aesthetic, value). A hard tightness problem caps the score at 60. 88+ = Perfect, 76+ = Great, 62+ = Workable, below that = Skip.
 4. **Alternatives / "Find me something."** Claude searches current retailers, pulls each candidate's size chart, and the fit math ranks them.
-5. **Enter manually.** Type a size chart yourself. This works offline with no API key.
+5. **Copy for Claude app (free, no API key).** The app copies a ready-made prompt with your profile and the item. Paste it into the Claude app with web search on, then paste Claude's reply back. The app scores it exactly like the API path, alternatives included. It uses your Claude plan's normal usage instead of API credit.
+6. **Enter manually.** Type a size chart yourself. This works offline with no API key.
 
 Everything is editable in **Profile**: body measurements, reference garments, fit log (items I've tried), shoe sizes, budgets, fit targets and the style text the AI reads. Data is stored only in the browser (localStorage). Use Export/Import for backups.
 
@@ -33,4 +34,4 @@ npm test          # fit-engine unit tests (Node 20+)
 npm run serve     # http://localhost:8080
 ```
 
-Files: `js/fit.js` (scoring), `js/profile.js` (default profile + storage), `js/ai.js` (Claude calls), `js/app.js` (UI).
+Files: `js/fit.js` (scoring), `js/profile.js` (default profile + storage), `js/prompts.js` (prompts + reply parsing, shared by both paths), `js/ai.js` (API calls), `js/app.js` (UI).

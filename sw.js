@@ -1,8 +1,8 @@
 // Offline shell cache. Network-first so updates show up right away;
 // falls back to cache when offline. API calls are never cached.
-const CACHE = 'fitcheck-v2';
+const CACHE = 'fitcheck-v3';
 const SHELL = [
-  './', 'index.html', 'css/styles.css', 'js/app.js', 'js/fit.js', 'js/profile.js', 'js/ai.js',
+  './', 'index.html', 'css/styles.css', 'js/app.js', 'js/fit.js', 'js/profile.js', 'js/ai.js', 'js/prompts.js',
   'vendor/anthropic-sdk-0.127.0.mjs', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png',
 ];
 

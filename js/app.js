@@ -1,4 +1,5 @@
 import { CATEGORIES, DIMS, evaluateItem, compareToReference, referencesFor, verdictFor } from './fit.js';
+import { chatItemPrompt, chatAltPrompt, parseReply } from './prompts.js';
 import { loadProfile, saveProfile, resetProfile, loadSettings, saveSettings, loadChecks, saveChecks, exportAll, importAll, uid, DEFAULT_PROFILE } from './profile.js';
 
 // ai.js pulls in the bundled SDK; load it lazily so the app opens instantly
@@ -78,9 +79,9 @@ function renderCheck() {
       h('button', { class: checkMode === k ? 'active' : '', onclick: () => { checkMode = k; go('check'); } }, label))),
   );
   if (!settings.apiKey && checkMode !== 'manual') {
-    add(main, h('div', { class: 'notice' }, 'AI features need your Anthropic API key. ',
-      h('a', { href: '#', onclick: e => { e.preventDefault(); go('settings'); } }, 'Add it in Settings'),
-      '. You can still use “Enter manually” without one.'));
+    add(main, h('div', { class: 'notice' }, 'No API key? No problem — “Copy for Claude app” uses your normal Claude plan for free. (Or ',
+      h('a', { href: '#', onclick: e => { e.preventDefault(); go('settings'); } }, 'add a key'),
+      ' for one-tap checks.)'));
   }
   if (checkMode === 'item') renderCheckItemForm();
   else if (checkMode === 'find') renderFindForm();
@@ -88,7 +89,68 @@ function renderCheck() {
 
   const out = h('div', { id: 'result' });
   add(main, out);
-  if (lastResult && lastResult.mode === checkMode) renderResultBlock(out, lastResult);
+  const bridge = loadBridge();
+  if (bridge && bridge.mode === checkMode) renderBridge(out, bridge);
+  else if (lastResult && lastResult.mode === checkMode) renderResultBlock(out, lastResult);
+}
+
+// ---------- free path: copy a prompt into the Claude app, paste the reply back ----------
+const BRIDGE_KEY = 'fitapp.bridge.v1';
+// Saved so the paste box survives iOS reloading the tab while you're in the Claude app.
+function loadBridge() { try { return JSON.parse(localStorage.getItem(BRIDGE_KEY)); } catch { return null; } }
+function saveBridge(b) { try { b ? localStorage.setItem(BRIDGE_KEY, JSON.stringify(b)) : localStorage.removeItem(BRIDGE_KEY); } catch { /* private mode */ } }
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+// Must be called directly from a tap handler (iOS only allows clipboard writes there).
+function startBridge(bridge) {
+  saveBridge(bridge);
+  const copied = copyText(bridge.prompt);
+  if (bridge.mode !== checkMode) { checkMode = bridge.mode; go('check'); }
+  const out = document.getElementById('result');
+  fill(out);
+  renderBridge(out, bridge, copied);
+  out.scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderBridge(out, bridge, copiedPromise) {
+  const status = h('strong', {}, copiedPromise ? 'Copying…' : 'Prompt ready');
+  const promptBox = h('textarea', { rows: 5, readonly: true, value: bridge.prompt });
+  copiedPromise?.then(ok => {
+    status.textContent = ok ? 'Prompt copied ✓' : 'Couldn’t copy automatically — open “Show prompt” below and copy it';
+    if (!ok) { details.open = true; promptBox.select(); }
+  });
+  const details = h('details', {}, h('summary', {}, 'Show prompt'), promptBox);
+  const reply = h('textarea', { rows: 6, placeholder: 'Paste Claude’s reply here (the whole reply is fine)' });
+  const what = bridge.kind === 'item' ? 'item check' : 'search';
+  add(out, h('div', { class: 'card bridge' },
+    h('h3', {}, 'Use your Claude app (free)'),
+    h('ol', { class: 'steps' },
+      h('li', {}, status, ' ', h('button', { class: 'ghost small', onclick: async () => { status.textContent = (await copyText(bridge.prompt)) ? 'Prompt copied ✓' : 'Copy failed — use “Show prompt”'; } }, 'Copy again')),
+      h('li', {}, h('a', { class: 'ext', href: 'https://claude.ai/new', target: '_blank', rel: 'noopener noreferrer' }, 'Open Claude ↗'),
+        ' → start a new chat → paste. Make sure ', h('strong', {}, 'web search'), ' is on.',
+        bridge.imageCount ? ` Attach your ${bridge.imageCount} screenshot(s) there too.` : ''),
+      h('li', {}, 'When Claude finishes (can take a minute), copy its reply — the ', h('code', {}, 'json'), ' block is what matters — and paste it here:')),
+    reply,
+    h('button', { class: 'primary', onclick: () => {
+      const parsed = parseReply(reply.value);
+      if (!parsed) return toast('Couldn’t find the results in that text — make sure you copied the json block');
+      saveBridge(null);
+      if (parsed.kind === 'item') {
+        lastResult = { mode: 'item', item: parsed.item, via: 'claude-app' };
+      } else if (bridge.baseItem) {
+        lastResult = { mode: 'item', item: bridge.baseItem, alternatives: { list: parsed.alternatives, notes: parsed.notes } };
+      } else {
+        lastResult = { mode: 'find', request: bridge.request || 'your request', alternatives: parsed.alternatives, notes: parsed.notes };
+      }
+      checkMode = lastResult.mode;
+      go('check');
+      document.getElementById('result')?.scrollIntoView({ behavior: 'smooth' });
+    } }, 'Score Claude’s reply'),
+    details,
+    h('button', { class: 'ghost', onclick: () => { saveBridge(null); fill(out); if (lastResult && lastResult.mode === checkMode) renderResultBlock(out, lastResult); } }, `Cancel this ${what}`)));
 }
 
 function renderCheckItemForm() {
@@ -113,24 +175,38 @@ function renderCheckItemForm() {
     if (!text && !pendingImages.length) return toast('Paste a link, describe the item, or add a screenshot');
     await runCheck({ text, images: pendingImages.slice(), category: cat.value || null });
   } }, 'Check fit');
+  const hasKey = !!settings.apiKey;
+  if (!hasKey) btn.className = 'ghost';
+  const copyBtn = h('button', { class: hasKey ? 'ghost' : 'primary', onclick: () => {
+    const text = ta.value.trim();
+    if (!text) return toast('Paste a link or describe the item first');
+    startBridge({ mode: 'item', kind: 'item', imageCount: pendingImages.length, prompt: chatItemPrompt(profile, { text, imageCount: pendingImages.length, category: cat.value || null }) });
+  } }, 'Copy for Claude app (free)');
   add(main, h('section', { class: 'card' },
     h('label', {}, 'Item'), ta,
     h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: () => file.click() }, '📷 Add screenshots / photos'), file),
     thumbs,
     h('label', {}, 'Category'), cat,
-    btn,
-    h('p', { class: 'hint' }, 'Tip: screenshots of the size chart give the most accurate verdict. Each check searches the web and typically costs a few to ~30 cents on Opus (shown after each run).')));
+    hasKey ? [btn, copyBtn] : [copyBtn, btn],
+    h('p', { class: 'hint' }, hasKey
+      ? 'Tip: screenshots of the size chart give the most accurate verdict. “Check fit” uses your API key (cost shown after each run); “Copy for Claude app” is free with your Claude plan.'
+      : 'Free: copies a prompt for the Claude app, then you paste its reply back here. “Check fit” needs an API key.')));
 }
 
 function renderFindForm() {
   const ta = h('textarea', { rows: 3, placeholder: 'e.g. “Dark navy zip hoodie, lightweight and drapey, under $40” or “Black athletic sweatpants with an open hem”' });
   add(main, h('section', { class: 'card' },
     h('label', {}, 'What are you looking for?'), ta,
-    h('button', { class: 'primary', onclick: async () => {
+    h('button', { class: settings.apiKey ? 'primary' : 'ghost', onclick: async () => {
       const request = ta.value.trim();
       if (!request) return toast('Describe what you want');
       await runFind({ request });
     } }, 'Find the best options'),
+    h('button', { class: settings.apiKey ? 'ghost' : 'primary', onclick: () => {
+      const request = ta.value.trim();
+      if (!request) return toast('Describe what you want');
+      startBridge({ mode: 'find', kind: 'find', request, prompt: chatAltPrompt(profile, { request, n: Number(settings.maxAlternatives) || 4, country: settings.country || 'US' }) });
+    } }, 'Copy for Claude app (free)'),
     h('p', { class: 'hint' }, 'Searches current retailers, pulls each option’s size chart, and ranks them with your fit math.')));
 }
 
@@ -409,7 +485,7 @@ function editCard(item, redraw) {
 
 function actionsRow(item, ev, opts) {
   return h('div', { class: 'actions' },
-    opts.allowAlternatives ? h('button', { class: 'primary', onclick: async e => {
+    opts.allowAlternatives ? h('button', { class: settings.apiKey ? 'primary' : 'ghost', onclick: async e => {
       const btn = e.currentTarget;
       btn.disabled = true; const orig = btn.textContent;
       try {
@@ -419,7 +495,10 @@ function actionsRow(item, ev, opts) {
         const out = document.getElementById('result');
         out.replaceChildren(); renderResultBlock(out, lastResult);
       } catch (err) { toast(err.message || String(err)); btn.textContent = orig; btn.disabled = false; }
-    } }, 'Find better alternatives') : null,
+    } }, settings.apiKey ? 'Find better alternatives' : 'Find better alternatives (API key)') : null,
+    opts.allowAlternatives ? h('button', { class: settings.apiKey ? 'ghost' : 'primary', onclick: () => {
+      startBridge({ mode: 'item', kind: 'alternatives', baseItem: clone(item), prompt: chatAltPrompt(profile, { baseItem: item, n: Number(settings.maxAlternatives) || 4, country: settings.country || 'US', budget: profile.budgets?.[ev.category] }) });
+    } }, 'Find alternatives via Claude app (free)') : null,
     opts.allowSave ? h('button', { class: 'ghost', onclick: () => {
       const checks = loadChecks();
       checks.unshift({ id: uid('chk'), date: today(), item: clone(item), overall: ev.overall, verdict: ev.verdict.key, bestSize: ev.bestSize });
