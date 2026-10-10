@@ -11,6 +11,8 @@ A personal phone web app that judges whether a piece of clothing fits **my** bod
 5. **Copy for Claude app (free, no API key).** The app copies a ready-made prompt with your profile and the item. Paste it into the Claude app with web search on, then paste Claude's reply back. The app scores it exactly like the API path, alternatives included. It uses your Claude plan's normal usage instead of API credit.
 6. **Enter manually.** Type a size chart yourself. This works offline with no API key.
 
+**3D Fit Studio.** Every result shows a 3D mannequin built from your measurements, wearing the garment built from its size chart. Drag to spin, pinch to zoom, and tap any measurement to see its value, your sweet spot and the difference from your BTS hoodie. Size pills morph the garment between sizes, "Tight spots" heat-maps the fit, and "vs your BTS" overlays a ghost of your benchmark hoodie. Profile shows your 3D body with tappable measurements. The models are proportional approximations for comparing sizes, not a body scan.
+
 Everything is editable in **Profile**: body measurements, reference garments, fit log (items I've tried), shoe sizes, budgets, fit targets and the style text the AI reads. Data is stored only in the browser (localStorage). Use Export/Import for backups.
 
 ## Setup
@@ -27,11 +29,11 @@ Each check runs a few web searches and page fetches. The estimated cost is shown
 
 ## Development
 
-There's no build step: plain ES modules plus a vendored, bundled `@anthropic-ai/sdk@0.127.0` (`vendor/`).
+There's no build step: plain ES modules plus vendored bundles of `@anthropic-ai/sdk@0.127.0` and `three@0.186.1` (`vendor/`).
 
 ```
 npm test          # fit-engine unit tests (Node 20+)
 npm run serve     # http://localhost:8080
 ```
 
-Files: `js/fit.js` (scoring), `js/profile.js` (default profile + storage), `js/prompts.js` (prompts + reply parsing, shared by both paths), `js/ai.js` (API calls), `js/app.js` (UI).
+Files: `js/fit.js` (scoring), `js/model3d.js` (3D geometry math, unit-tested), `js/viz3d.js` (three.js rendering), `js/profile.js` (default profile + storage), `js/prompts.js` (prompts + reply parsing, shared by both paths), `js/ai.js` (API calls), `js/app.js` (UI).

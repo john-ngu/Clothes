@@ -7,7 +7,7 @@ import { loadProfile, saveProfile, resetProfile, loadSettings, saveSettings, loa
 let aiModule = null;
 async function ai() { return aiModule ??= await import('./ai.js'); }
 
-export const APP_VERSION = '2026.10.10-3';
+export const APP_VERSION = '2026.10.10-4';
 
 let profile = loadProfile();
 let settings = loadSettings();
@@ -49,6 +49,159 @@ function toast(msg) {
 
 function persistProfile() { saveProfile(profile); }
 
+// ---------- 3D studio (three.js is lazy-loaded so the app opens instantly) ----------
+let vizModule = null;
+async function viz() { return vizModule ??= await import('./viz3d.js'); }
+const liveStudios = new Set();
+// Free GPU resources when a studio's element leaves the page.
+new MutationObserver(() => {
+  for (const s of liveStudios) if (!s.el.isConnected) { try { s.dispose(); } catch { /* already gone */ } liveStudios.delete(s); }
+}).observe(document.body, { childList: true, subtree: true });
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svg(tag, attrs = {}, ...children) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  for (const c of children) el.append(c);
+  return el;
+}
+
+// Animated score ring with count-up.
+function scoreRing(score, verdict, { size = 104, celebrate = false } = {}) {
+  const r = 44, C = 2 * Math.PI * r;
+  const val = score ?? 0;
+  const arc = svg('circle', { cx: 50, cy: 50, r, class: 'ring-arc', 'stroke-dasharray': C, 'stroke-dashoffset': C });
+  const num = h('div', { class: 'ring-num' }, score == null ? '–' : '0');
+  const el = h('div', { class: `score-ring v-${verdict?.key || 'unknown'}`, style: { width: `${size}px`, height: `${size}px` } },
+    svg('svg', { viewBox: '0 0 100 100' },
+      svg('defs', {}, svg('linearGradient', { id: `rg-${verdict?.key}`, x1: 0, y1: 0, x2: 1, y2: 1 },
+        svg('stop', { offset: '0%', class: 'rg-a' }), svg('stop', { offset: '100%', class: 'rg-b' }))),
+      svg('circle', { cx: 50, cy: 50, r, class: 'ring-track' }), arc),
+    num);
+  arc.style.stroke = `url(#rg-${verdict?.key})`;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    arc.style.strokeDashoffset = String(C * (1 - val / 100));
+    if (score == null) return;
+    const t0 = performance.now();
+    const step = t => { const k = Math.min(1, (t - t0) / 1100); num.textContent = String(Math.round(val * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+    if (celebrate && verdict?.key === 'perfect') confetti(el);
+  }));
+  return el;
+}
+
+function confetti(anchor) {
+  const box = anchor.getBoundingClientRect();
+  const colors = ['#7c9cff', '#5eead4', '#fbbf24', '#f472b6', '#a78bfa', '#34d399'];
+  for (let i = 0; i < 46; i++) {
+    const p = h('span', { class: 'confetti', style: {
+      left: `${box.left + box.width / 2}px`, top: `${box.top + box.height / 2 + window.scrollY}px`,
+      background: colors[i % colors.length],
+      animationDelay: `${Math.random() * 120}ms`,
+    } });
+    p.style.setProperty('--dx', `${(Math.random() - 0.5) * 340}px`);
+    p.style.setProperty('--dy', `${-120 - Math.random() * 260}px`);
+    p.style.setProperty('--rot', `${Math.random() * 720}deg`);
+    document.body.append(p);
+    setTimeout(() => p.remove(), 1900);
+  }
+}
+
+const STATUS_WORD = { ideal: 'Sweet spot', ok: 'Close', off: 'Off', missing: 'Not listed' };
+
+// Interactive 3D card: mannequin + garment, size pills, dimension chips, detail panel.
+function studioCard(item, opts = {}) {
+  const cat = CATEGORIES[item.category] ? item.category : 'other';
+  const group = CATEGORIES[cat].group;
+  if (group === 'other') return null;
+  let ev = evaluateItem(item, profile);
+  let sizeName = String(opts.sizeName ?? ev.bestSize ?? item.sizes?.[0]?.size ?? '');
+  const ref = group === 'top' ? referencesFor(cat, profile).find(r => r.outcome === 'perfect') : null;
+  const stageEl = h('div', { class: 'studio-stage', style: { height: `${opts.height || 440}px` } },
+    h('div', { class: 'studio-loading' }, h('div', { class: 'spinner' }), h('span', {}, 'Building your 3D fit…')));
+  const sizesBar = h('div', { class: 'size-pills' });
+  const toggles = h('div', { class: 'studio-toggles' });
+  const chips = h('div', { class: 'dim-chips' });
+  const detail = h('div', { class: 'dim-detail' });
+  let studio = null, activeKey = null, anchorInfo = {};
+  const sizeEval = () => ev.sizes.find(s => s.size === sizeName);
+  const statusFor = name => Object.fromEntries((ev.sizes.find(s => s.size === String(name))?.dims || []).map(d => [d.key, d.status]));
+
+  const drawSizes = () => {
+    const scored = ev.sizes.filter(s => s.dims?.length);
+    fill(sizesBar, group === 'shoes' || scored.length < 1 ? null : scored.map(s => h('button', {
+      class: `size-pill v-${verdictFor(s.score).key}${s.size === sizeName ? ' active' : ''}${s.size === ev.bestSize ? ' best' : ''}`,
+      onclick: () => { sizeName = s.size; studio?.setSize(s.size); drawSizes(); drawChips(); showDetail(activeKey); },
+    }, h('b', {}, s.size), s.score != null ? h('small', {}, String(s.score)) : null)));
+  };
+  const drawChips = () => {
+    const dims = sizeEval()?.dims || [];
+    fill(chips, dims.map(d => h('button', { class: `chip s-${d.status}${d.key === activeKey ? ' active' : ''}`, onclick: () => studio ? studio.select(d.key) : showDetail(d.key) },
+      h('i', {}), (DIMS[d.key]?.label || d.key).split(' (')[0])));
+  };
+  const showDetail = key => {
+    if (!key) { fill(detail, h('p', { class: 'hint' }, opts.compact ? null : 'Tap a measurement on the model or below to explore it. Drag to rotate · pinch to zoom.')); return; }
+    const d = sizeEval()?.dims.find(x => x.key === key);
+    const a = anchorInfo[key];
+    const sz = item.sizes?.find(s => String(s.size) === sizeName);
+    const cmp = ref && sz?.measurements ? compareToReference(sz.measurements, ref).find(r => r.key === key) : null;
+    const value = d?.value ?? a?.value;
+    fill(detail,
+      h('div', { class: 'dd-head' },
+        h('div', {}, h('div', { class: 'dd-label' }, (DIMS[key]?.label || a?.label || key)), h('div', { class: 'dd-size' }, `Size ${sizeName}`)),
+        h('div', { class: `dd-value s-${d?.status || 'missing'}` }, value != null ? `${value}` : '—', h('small', {}, ' cm'))),
+      d && d.status !== 'missing' ? rangeBar(d) : null,
+      d && d.status !== 'missing' ? h('div', { class: 'dd-legend' }, h('span', {}, `Sweet spot ${d.ideal[0]}–${d.ideal[1]}`), h('span', { class: `pill s-${d.status}` }, STATUS_WORD[d.status])) : null,
+      h('p', { class: 'dd-msg' }, d?.status === 'missing' || a?.assumed ? 'Not in this size chart — the model shows your target midpoint instead.' : d?.message || ''),
+      a?.note ? h('p', { class: 'dd-msg' }, a.note) : null,
+      cmp ? h('div', { class: 'dd-cmp' }, h('span', {}, `vs your ${ref.name.split(' (')[0]}`), h('strong', { class: Math.abs(cmp.diff) <= 1.5 ? 'good' : Math.abs(cmp.diff) <= 3.5 ? 'warn' : 'bad' }, `${cmp.diff > 0 ? '+' : ''}${cmp.diff} cm`)) : null);
+  };
+
+  let tension = false, ghostOn = false, labelsOn = true;
+  const drawToggles = () => fill(toggles,
+    group !== 'shoes' ? h('button', { class: `tgl${tension ? ' on' : ''}`, onclick: () => { tension = !tension; studio?.setMode(tension ? 'tension' : 'normal'); drawToggles(); } }, '🔥 Tight spots') : null,
+    studio?.hasGhost ? h('button', { class: `tgl${ghostOn ? ' on' : ''}`, onclick: () => { ghostOn = !ghostOn; studio.toggleGhost(ghostOn); drawToggles(); } }, '👻 vs your BTS') : null,
+    h('button', { class: `tgl${labelsOn ? ' on' : ''}`, onclick: () => { labelsOn = !labelsOn; studio?.toggleLabels(labelsOn); drawToggles(); } }, '📏 Labels'));
+
+  const el = h('div', { class: `studio-card${opts.compact ? ' compact' : ''}` },
+    stageEl,
+    h('div', { class: 'studio-top' }, sizesBar, toggles),
+    opts.compact ? null : h('div', { class: 'heat-legend' }, h('span', { class: 'hl-r' }, 'tight'), h('span', { class: 'hl-a' }, 'snug'), h('span', { class: 'hl-g' }, 'comfy'), h('span', { class: 'hl-b' }, 'roomy')),
+    opts.compact ? null : chips,
+    opts.compact ? null : detail);
+  drawSizes(); drawChips(); drawToggles(); showDetail(null);
+
+  (async () => {
+    try {
+      const v = await viz();
+      if (!v.webglAvailable()) throw new Error('3D not supported on this device');
+      stageEl.querySelector('.studio-loading')?.remove();
+      studio = v.createFitStudio(stageEl, profile, item, {
+        sizeName, height: opts.height || 440, reference: ref, statusFor,
+        onSelect: (key, a) => { activeKey = key; if (a) anchorInfo[key] = a; drawChips(); showDetail(key); },
+      });
+      const m = studio.model();
+      if (m?.anchors) for (const [k, a] of Object.entries(m.anchors)) anchorInfo[k] = a;
+      liveStudios.add({ el, dispose: studio.dispose });
+      if (opts.compact) studio.toggleLabels(true);
+      drawToggles();
+    } catch (err) {
+      console.warn(err);
+      fill(stageEl, h('div', { class: 'studio-loading' }, `3D view unavailable (${err.message}). The scores below still work.`));
+    }
+  })();
+
+  el.update = newItem => {
+    item = newItem; ev = evaluateItem(item, profile);
+    if (!item.sizes?.some(s => String(s.size) === sizeName)) sizeName = String(item.sizes?.[0]?.size ?? '');
+    studio?.update(item);
+    const m = studio?.model();
+    if (m?.anchors) for (const [k, a] of Object.entries(m.anchors)) anchorInfo[k] = a;
+    drawSizes(); drawChips(); showDetail(activeKey);
+  };
+  return el;
+}
+
 // ---------- navigation ----------
 const views = { check: renderCheck, saved: renderSaved, profile: renderProfile, settings: renderSettings };
 let currentView = 'check';
@@ -74,8 +227,22 @@ function categorySelect(value, { allowAuto = true, onchange } = {}) {
     Object.entries(CATEGORIES).map(([k, c]) => h('option', { value: k, selected: k === value ? true : null }, c.label)));
 }
 
+let heroOpen = true;
 function renderCheck() {
   const modes = [['item', 'Check an item'], ['find', 'Find me something'], ['manual', 'Enter manually']];
+  const ref = (profile.references || []).find(r => r.outcome === 'perfect' && Object.keys(r.measurements || {}).length);
+  if (ref) {
+    const heroBody = h('div');
+    const draw = () => fill(heroBody, heroOpen ? studioCard({ category: ref.category, name: ref.name, color_considered: ref.name, sizes: [{ size: ref.size, measurements: ref.measurements }] }, { height: 300, compact: true }) : null);
+    add(main, h('section', { class: 'hero' },
+      h('div', { class: 'hero-text' },
+        h('div', { class: 'eyebrow' }, 'Your fit twin'),
+        h('h2', {}, 'What are we checking today?'),
+        h('p', {}, `That's you in your ${ref.name.split(' (')[0]} (${ref.size}), your perfect-fit benchmark. Every item gets compared against it.`),
+        h('button', { class: 'link-btn', onclick: () => { heroOpen = !heroOpen; draw(); } }, heroOpen ? 'Hide 3D' : 'Show 3D')),
+      heroBody));
+    draw();
+  }
   add(main, 
     h('div', { class: 'segmented' }, modes.map(([k, label]) =>
       h('button', { class: checkMode === k ? 'active' : '', onclick: () => { checkMode = k; go('check'); } }, label))),
@@ -251,7 +418,22 @@ function renderManualForm() {
     );
   };
   draw();
-  add(main, h('section', { class: 'card' }, body));
+  // Live 3D preview that reshapes as you type.
+  let preview = null, timer;
+  const previewBox = h('div');
+  const refresh = () => {
+    const item = { ...clone(d), sizes: d.sizes.filter(s => s.size) };
+    if (!item.sizes.length || CATEGORIES[d.category].group === 'other') { fill(previewBox); preview = null; return; }
+    if (!preview || preview.dataset.cat !== d.category) {
+      preview = studioCard(item, { height: 380 });
+      if (preview) preview.dataset.cat = d.category;
+      fill(previewBox, h('h2', { class: 'section-title' }, 'Live 3D preview'), preview);
+    } else preview.update(item);
+  };
+  body.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refresh, 300); });
+  body.addEventListener('change', () => { clearTimeout(timer); timer = setTimeout(refresh, 50); });
+  refresh();
+  add(main, h('section', { class: 'card' }, body), previewBox);
 }
 
 function busy(container, msg) {
@@ -328,7 +510,7 @@ function renderAlternatives(out, alts, notes) {
         if (!built) { details.append(renderItemResult(item, { compact: true, allowSave: true })); built = true; }
         details.classList.toggle('hidden');
       } },
-        scoreBadge(ev.overall, ev.verdict),
+        scoreRing(ev.overall, ev.verdict, { size: 58 }),
         h('div', { class: 'alt-text' },
           h('div', { class: 'alt-title' }, `${i + 1}. ${item.brand || ''} ${item.name || ''}`.trim()),
           h('div', { class: 'alt-sub' }, [fmtMoney(item.price, item.currency), ev.bestSize ? `size ${ev.bestSize}` : '', ev.verdict.label].filter(Boolean).join(' · ')),
@@ -357,14 +539,19 @@ function rangeBar(d) {
 
 function renderItemResult(item, opts = {}) {
   const wrap = h('div', { class: 'result' });
+  const studioEl = studioCard(item, { height: opts.compact ? 380 : 460 });
+  const body = h('div');
+  add(wrap, studioEl, body);
+  let first = true;
   const draw = () => {
     const ev = evaluateItem(item, profile);
     const best = ev.sizes.find(s => s.size === ev.bestSize);
     const link = safeUrl(item.url);
-    fill(wrap, 
+    if (!first) studioEl?.update(item);
+    fill(body, 
       h('div', { class: `card verdict v-${ev.verdict.key}` },
         h('div', { class: 'verdict-top' },
-          scoreBadge(ev.overall, ev.verdict),
+          scoreRing(ev.overall, ev.verdict, { celebrate: first && !opts.compact }),
           h('div', {},
             h('div', { class: 'verdict-label' }, ev.verdict.label),
             h('div', { class: 'verdict-item' }, `${item.brand || ''} ${item.name || ''}`.trim() || 'This item'),
@@ -390,6 +577,7 @@ function renderItemResult(item, opts = {}) {
         h('ul', {}, item.sources.map(s => { const u = safeUrl(s); return h('li', {}, u ? h('a', { href: u, target: '_blank', rel: 'noopener noreferrer' }, s) : s); }))) : null,
       opts.usage ? usageLine(opts.usage, opts.model) : null,
     );
+    first = false;
   };
   draw();
   return wrap;
@@ -522,7 +710,7 @@ function renderSaved() {
         if (!built) { details.append(renderItemResult(c.item, {})); built = true; }
         details.classList.toggle('hidden');
       } },
-        scoreBadge(ev.overall, ev.verdict),
+        scoreRing(ev.overall, ev.verdict, { size: 58 }),
         h('div', { class: 'alt-text' },
           h('div', { class: 'alt-title' }, `${c.item.brand || ''} ${c.item.name || ''}`.trim() || 'Item'),
           h('div', { class: 'alt-sub' }, [c.date, ev.bestSize ? `size ${ev.bestSize}` : '', ev.verdict.label].filter(Boolean).join(' · '))),
@@ -532,12 +720,13 @@ function renderSaved() {
 }
 
 // ---------- PROFILE ----------
+function bodyChanged(obj) { if (obj === profile.body) document.querySelector('.studio-card')?.remount?.(); }
 function numInput(obj, key, { step = '0.1' } = {}) {
-  return h('input', { type: 'number', inputmode: 'decimal', step, value: obj[key] ?? '', onchange: e => { obj[key] = e.target.value === '' ? null : Number(e.target.value); persistProfile(); } });
+  return h('input', { type: 'number', inputmode: 'decimal', step, value: obj[key] ?? '', onchange: e => { obj[key] = e.target.value === '' ? null : Number(e.target.value); persistProfile(); bodyChanged(obj); } });
 }
 function rangeInputs(obj, key) {
   const v = Array.isArray(obj[key]) ? obj[key] : [obj[key], obj[key]];
-  const set = (i, val) => { const arr = [...v]; arr[i] = val === '' ? null : Number(val); obj[key] = arr; v[i] = arr[i]; persistProfile(); };
+  const set = (i, val) => { const arr = [...v]; arr[i] = val === '' ? null : Number(val); obj[key] = arr; v[i] = arr[i]; persistProfile(); bodyChanged(obj); };
   return h('div', { class: 'row tight' },
     h('input', { type: 'number', inputmode: 'decimal', step: '0.1', value: v[0] ?? '', onchange: e => set(0, e.target.value) }),
     h('span', {}, '–'),
@@ -550,6 +739,7 @@ function renderProfile() {
   add(main, 
     h('h2', { class: 'section-title' }, 'Your profile'),
     h('p', { class: 'hint' }, `Last updated ${profile.updated}. Everything saves automatically on this device.`),
+    bodyCard(),
 
     h('details', { class: 'card', open: true }, h('summary', {}, 'Body measurements (cm)'),
       h('div', { class: 'grid2' },
@@ -599,6 +789,29 @@ function renderProfile() {
           if (confirm('Reset your profile to the original defaults? Your fit log and edits will be lost (saved checks stay).')) { resetProfile(); profile = loadProfile(); go('profile'); }
         } }, 'Reset to defaults'))),
   );
+}
+
+let bodyViewer = null;
+function bodyCard() {
+  const stage = h('div', { class: 'studio-stage', style: { height: '460px' } }, h('div', { class: 'studio-loading' }, h('div', { class: 'spinner' }), h('span', {}, 'Building your 3D body…')));
+  const info = h('p', { class: 'dd-msg center' }, 'Tap any measurement on your body. Drag to spin.');
+  const el = h('div', { class: 'studio-card' }, stage, h('div', { class: 'studio-top' }, h('div', { class: 'eyebrow' }, 'Your 3D body')), info);
+  const mount = async () => {
+    try {
+      const v = await viz();
+      if (!v.webglAvailable()) throw new Error('3D not supported here');
+      fill(stage);
+      bodyViewer?.dispose?.();
+      const viewer = v.createBodyViewer(stage, profile, { height: 460, onSelect: (key, a) => {
+        fill(info, h('strong', {}, `${a.label}: ${a.value} cm`), ' — edit it below and the model updates.');
+      } });
+      bodyViewer = viewer;
+      liveStudios.add({ el, dispose: viewer.dispose });
+    } catch (err) { fill(stage, h('div', { class: 'studio-loading' }, `3D view unavailable (${err.message}).`)); }
+  };
+  mount();
+  el.remount = () => { for (const s of liveStudios) if (s.el === el) { s.dispose(); liveStudios.delete(s); } fill(stage); mount(); };
+  return el;
 }
 
 const OUTCOMES = { perfect: 'Perfect', good: 'Good', too_big: 'Too big', too_small: 'Too small', too_long: 'Too long', too_short: 'Too short', loose: 'A bit loose', tight: 'A bit tight', returned: 'Returned', unknown: 'Not sure' };
@@ -765,6 +978,24 @@ function renderSettings() {
       h('p', { class: 'hint' }, `App version ${APP_VERSION}`)),
   );
 }
+
+// ---------- self-update: if a newer version is deployed, drop caches and reload once ----------
+async function checkForUpdate() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const { version } = await r.json();
+    if (!version || version === APP_VERSION) return;
+    const flag = `fit-updated-${version}`;
+    if (sessionStorage.getItem(flag)) return;
+    sessionStorage.setItem(flag, '1');
+    const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
+    await Promise.all(regs.map(x => x.unregister()));
+    if (window.caches) await Promise.all((await caches.keys()).map(k => caches.delete(k)));
+    location.reload();
+  } catch { /* offline — keep running */ }
+}
+checkForUpdate();
 
 // ---------- boot ----------
 document.querySelector('.topbar h1')?.append(h('small', { class: 'ver' }, ` v${APP_VERSION}`));
