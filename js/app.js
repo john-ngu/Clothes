@@ -7,6 +7,8 @@ import { loadProfile, saveProfile, resetProfile, loadSettings, saveSettings, loa
 let aiModule = null;
 async function ai() { return aiModule ??= await import('./ai.js'); }
 
+export const APP_VERSION = '2026.10.10-3';
+
 let profile = loadProfile();
 let settings = loadSettings();
 
@@ -176,7 +178,6 @@ function renderCheckItemForm() {
     await runCheck({ text, images: pendingImages.slice(), category: cat.value || null });
   } }, 'Check fit');
   const hasKey = !!settings.apiKey;
-  if (!hasKey) btn.className = 'ghost';
   const copyBtn = h('button', { class: hasKey ? 'ghost' : 'primary', onclick: () => {
     const text = ta.value.trim();
     if (!text) return toast('Paste a link or describe the item first');
@@ -187,21 +188,21 @@ function renderCheckItemForm() {
     h('div', { class: 'row' }, h('button', { class: 'ghost', onclick: () => file.click() }, '📷 Add screenshots / photos'), file),
     thumbs,
     h('label', {}, 'Category'), cat,
-    hasKey ? [btn, copyBtn] : [copyBtn, btn],
+    hasKey ? [btn, copyBtn] : copyBtn,
     h('p', { class: 'hint' }, hasKey
       ? 'Tip: screenshots of the size chart give the most accurate verdict. “Check fit” uses your API key (cost shown after each run); “Copy for Claude app” is free with your Claude plan.'
-      : 'Free: copies a prompt for the Claude app, then you paste its reply back here. “Check fit” needs an API key.')));
+      : 'Free: copies a prompt for the Claude app, then you paste its reply back here.')));
 }
 
 function renderFindForm() {
   const ta = h('textarea', { rows: 3, placeholder: 'e.g. “Dark navy zip hoodie, lightweight and drapey, under $40” or “Black athletic sweatpants with an open hem”' });
   add(main, h('section', { class: 'card' },
     h('label', {}, 'What are you looking for?'), ta,
-    h('button', { class: settings.apiKey ? 'primary' : 'ghost', onclick: async () => {
+    settings.apiKey ? h('button', { class: 'primary', onclick: async () => {
       const request = ta.value.trim();
       if (!request) return toast('Describe what you want');
       await runFind({ request });
-    } }, 'Find the best options'),
+    } }, 'Find the best options') : null,
     h('button', { class: settings.apiKey ? 'ghost' : 'primary', onclick: () => {
       const request = ta.value.trim();
       if (!request) return toast('Describe what you want');
@@ -485,7 +486,7 @@ function editCard(item, redraw) {
 
 function actionsRow(item, ev, opts) {
   return h('div', { class: 'actions' },
-    opts.allowAlternatives ? h('button', { class: settings.apiKey ? 'primary' : 'ghost', onclick: async e => {
+    opts.allowAlternatives && settings.apiKey ? h('button', { class: 'primary', onclick: async e => {
       const btn = e.currentTarget;
       btn.disabled = true; const orig = btn.textContent;
       try {
@@ -495,7 +496,7 @@ function actionsRow(item, ev, opts) {
         const out = document.getElementById('result');
         out.replaceChildren(); renderResultBlock(out, lastResult);
       } catch (err) { toast(err.message || String(err)); btn.textContent = orig; btn.disabled = false; }
-    } }, settings.apiKey ? 'Find better alternatives' : 'Find better alternatives (API key)') : null,
+    } }, 'Find better alternatives') : null,
     opts.allowAlternatives ? h('button', { class: settings.apiKey ? 'ghost' : 'primary', onclick: () => {
       startBridge({ mode: 'item', kind: 'alternatives', baseItem: clone(item), prompt: chatAltPrompt(profile, { baseItem: item, n: Number(settings.maxAlternatives) || 4, country: settings.country || 'US', budget: profile.budgets?.[ev.category] }) });
     } }, 'Find alternatives via Claude app (free)') : null,
@@ -760,11 +761,13 @@ function renderSettings() {
       h('input', { type: 'number', min: 2, max: 6, value: s.maxAlternatives, onchange: e => { s.maxAlternatives = Number(e.target.value); save(); } })),
     h('div', { class: 'card' }, h('h3', {}, 'About'),
       h('p', { class: 'hint' }, 'Verdict = 60% fit math (garment measurements vs your targets and reference garments) + 40% style match (fabric/drape, branding, color, aesthetic, value — judged by the AI against your style profile). A hard tightness problem caps the score at 60. Pricing: Opus 5.5 $4/$20 per million input/output tokens, Sonnet 5.5 $2/$10, web search $10 per 1,000 searches; the cost shown after each check is an estimate.'),
-      h('p', { class: 'hint' }, 'Install on iPhone: Safari → Share → Add to Home Screen.')),
+      h('p', { class: 'hint' }, 'Install on iPhone: Safari → Share → Add to Home Screen.'),
+      h('p', { class: 'hint' }, `App version ${APP_VERSION}`)),
   );
 }
 
 // ---------- boot ----------
+document.querySelector('.topbar h1')?.append(h('small', { class: 'ver' }, ` v${APP_VERSION}`));
 go('check');
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

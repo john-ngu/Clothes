@@ -216,3 +216,4 @@ table.edit td small { color: var(--muted); }
 .bridge details summary { color: var(--muted); font-size: 14px; cursor: pointer; }
 .bridge details textarea { margin-top: 6px; font-size: 12px; }
 code { background: var(--bg); padding: 0 4px; border-radius: 4px; }
+.topbar .ver { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 6px; }
